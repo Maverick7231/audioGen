@@ -1,3 +1,11 @@
 streamlit
 pydub
 ffmpeg-python
+streamlit
+edge-tts
+pydub
+python-dotenv
+bcrypt
+gspread
+oauth2client
+pytz 
