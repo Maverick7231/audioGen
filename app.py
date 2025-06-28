@@ -189,6 +189,16 @@ USERS = {
         "password_hash": hashlib.sha256("ankit123".encode()).hexdigest(),
         "name": "Administrator",
         "is_admin": True  # Added this field
+    },
+    "sahil": {
+        "password_hash": hashlib.sha256("blackDog".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "oladi": {
+        "password_hash": hashlib.sha256("blender".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
     }
 }
 
