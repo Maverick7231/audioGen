@@ -1,5 +1,3 @@
 streamlit
-edge-tts
 pydub
-python-dotenv
-bcrypt
+ffmpeg-python
