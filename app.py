@@ -4,6 +4,7 @@ from pathlib import Path
 import streamlit as st
 from edge_tts import Communicate
 import asyncio
+import hashlib 
 
 # Define the Hindi voices
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
@@ -23,7 +24,7 @@ async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz")
         st.error(f"Error during audio generation: {e}")
         return None
 
-def main():
+def main_app():
     st.title("Hindi Text-to-Speech Generator")
     st.markdown("Convert Hindi text to natural sounding speech")
     
