@@ -3,6 +3,7 @@ import asyncio
 from pathlib import Path
 import streamlit as st
 from edge_tts import Communicate
+import asyncio
 
 # Define the Hindi voices
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
@@ -86,5 +87,55 @@ def main():
                 mime="audio/mp3"
             )
 
+# User database (in production, use a real database)
+USERS = {
+    "admin": {
+        "password_hash": hashlib.sha256("admin123".encode()).hexdigest(),
+        "name": "Administrator"
+    },
+    "user": {
+        "password_hash": hashlib.sha256("user123".encode()).hexdigest(),
+        "name": "Regular User"
+    }
+}
+
+def login():
+    """Login form with user/password validation"""
+    def login_clicked():
+        if st.session_state.username in USERS:
+            stored_hash = USERS[st.session_state.username]["password_hash"]
+            input_hash = hashlib.sha256(st.session_state.password.encode()).hexdigest()
+            if stored_hash == input_hash:
+                st.session_state.logged_in = True
+                st.session_state.current_user = st.session_state.username
+                st.session_state.user_name = USERS[st.session_state.username]["name"]
+            else:
+                st.error("Invalid password")
+        else:
+            st.error("User not found")
+
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        st.title("Login")
+        with st.form("login_form"):
+            st.text_input("Username", key="username")
+            st.text_input("Password", type="password", key="password")
+            st.form_submit_button("Login", on_click=login_clicked)
+        return False
+    return True
+
+def logout():
+    """Logout button"""
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.experimental_rerun()
+
 if __name__ == "__main__":
-    main()
+    if login():
+        st.sidebar.title(f"Welcome, {st.session_state.user_name}")
+        logout()
+        main_app()  # Your existing TTS app function
+
+
