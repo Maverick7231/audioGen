@@ -3,7 +3,139 @@ from pydub import AudioSegment
 from pydub.utils import make_chunks
 import os
 import tempfile
+import hashlib
+import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
+# --- Configuration ---
+USERS = {
+    "kamesh": {
+        "password_hash": hashlib.sha256("nirvaan".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    },
+    "ram": {
+        "password_hash": hashlib.sha256("ram123".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    },
+    "admin": {
+        "password_hash": hashlib.sha256("9329283191".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    },
+    "ankit": {
+        "password_hash": hashlib.sha256("ankit123".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    },
+    "sahil": {
+        "password_hash": hashlib.sha256("blackDog".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    },
+    "oladi": {
+        "password_hash": hashlib.sha256("blender".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True
+    }
+}
+
+LOG_SHEET_NAME = "logs"  # Name of your Google Sheet
+
+def get_google_sheet(sheet_index=0):
+    """Authenticate and return the specific worksheet"""
+    scope = ["https://spreadsheets.google.com/feeds", 
+             "https://www.googleapis.com/auth/drive"]
+    try:
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(
+            st.secrets["GCP_CREDS"], scope)
+        client = gspread.authorize(creds)
+        spreadsheet = client.open(LOG_SHEET_NAME)
+        
+        # Get all worksheets and select by index
+        worksheets = spreadsheet.worksheets()
+        if len(worksheets) > sheet_index:
+            return worksheets[sheet_index]
+        else:
+            st.error(f"Sheet index {sheet_index} not found. Available sheets: {[ws.title for ws in worksheets]}")
+            return None
+    except Exception as e:
+        st.error(f"Failed to access Google Sheets: {e}")
+        return None
+
+def log_usage(username, action, details=""):
+    """Log user actions to first sheet (Sheet1)"""
+    sheet = get_google_sheet(1)  # First sheet for usage logs
+    if sheet:
+        try:
+            sheet.append_row([
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                username,
+                action,
+                details
+            ])
+        except Exception as e:
+            st.error(f"Failed to log usage: {e}")
+
+def log_audio_processing(username, params, voice_file_name, bg_file_name):
+    """Log audio processing details to second sheet (Sheet2)"""
+    sheet = get_google_sheet(1)  # Second sheet for audio processing logs
+    if sheet:
+        try:
+            sheet.append_row([
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                username,
+                voice_file_name,
+                bg_file_name,
+                str(params['chunk_size_ms']),
+                str(params['duck_amount_db']),
+                str(params['light_duck_db']),
+                str(params['fade_ms']),
+                str(params['bg_extension_ms']),
+                str(params['loudness_threshold'])
+            ])
+        except Exception as e:
+            st.error(f"Failed to log audio processing: {e}")
+
+# --- Authentication ---
+def login():
+    """Login form with user/password validation"""
+    def password_entered():
+        if st.session_state.username in USERS:
+            stored_hash = USERS[st.session_state.username]["password_hash"]
+            input_hash = hashlib.sha256(st.session_state.password.encode()).hexdigest()
+            if stored_hash == input_hash:
+                st.session_state.logged_in = True
+                st.session_state.current_user = st.session_state.username
+                st.session_state.user_name = USERS[st.session_state.username]["name"]
+                log_usage(st.session_state.username, "Login")
+            else:
+                st.error("Invalid password")
+        else:
+            st.error("User not found")
+
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        st.title("Login")
+        with st.form("login_form"):
+            st.text_input("Username", key="username")
+            st.text_input("Password", type="password", key="password")
+            st.form_submit_button("Login", on_click=password_entered)
+        return False
+    return True
+
+def logout():
+    """Logout button"""
+    if st.sidebar.button("Logout"):
+        log_usage(st.session_state.current_user, "Logout")
+        st.session_state.logged_in = False
+        st.experimental_rerun()
+
+# --- Audio Processing ---
 def duck_background_music(voiceover, background, output_path, params):
     """Modified ducking function with all parameters configurable"""
     # Extend voiceover with silence-free background continuation
@@ -28,7 +160,7 @@ def duck_background_music(voiceover, background, output_path, params):
         if v_db > params['loudness_threshold']:
             b_chunk = b_chunk - params['duck_amount_db']
         else:
-            b_chunk = b_chunk - params['light_duck_db']  # Configurable light ducking
+            b_chunk = b_chunk - params['light_duck_db']
 
         # Apply fade
         b_chunk = b_chunk.fade_in(params['fade_ms']).fade_out(params['fade_ms'])
@@ -37,7 +169,7 @@ def duck_background_music(voiceover, background, output_path, params):
     # Combine and export
     sum(ducked_chunks).overlay(voiceover).export(output_path, format="mp3", bitrate="192k")
 
-def main():
+def audio_ducking_tool():
     st.title("🎵 Audio Ducking Tool")
     st.markdown("Automatically lower background music when voiceover plays")
 
@@ -76,8 +208,15 @@ def main():
                 voice = AudioSegment.from_file(tmp1.name)
                 bg = AudioSegment.from_file(tmp2.name)
                 
-                # Process
+                # Process and log
                 duck_background_music(voice, bg, tmp3.name, params)
+                log_audio_processing(
+                    st.session_state.current_user,
+                    params,
+                    voice_file.name,
+                    bg_file.name
+                )
+                log_usage(st.session_state.current_user, "AudioProcessed", f"Files: {voice_file.name}, {bg_file.name}")
                 
                 # Show result
                 st.success("Processing complete!")
@@ -96,6 +235,13 @@ def main():
             os.unlink(tmp1.name)
             os.unlink(tmp2.name)
             os.unlink(tmp3.name)
+
+# --- Main App ---
+def main():
+    if login():
+        st.sidebar.title(f"Welcome, {st.session_state.user_name}")
+        logout()
+        audio_ducking_tool()
 
 if __name__ == "__main__":
     main()
