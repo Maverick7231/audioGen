@@ -175,6 +175,7 @@ def login():
         return False
     return True
 
+
 def logout():
     """Logout button"""
     if st.sidebar.button("Logout"):
