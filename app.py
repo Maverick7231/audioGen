@@ -110,24 +110,56 @@ def main_app():
             st.warning("Please enter some text")
             return
             
-        with st.spinner("Generating..."):
+        with st.spinner("Generating audio..."):
             output_path = asyncio.run(
                 generate_audio(
                     text=text,
-                    voice=VOICES[voice],
-                    output_filename=f"{filename}.mp3"
+                    voice=voice,
+                    output_filename=f"{filename}.mp3",
+                    rate=rate,
+                    pitch=pitch
                 )
-            )
+            )          
+        # with st.spinner("Generating..."):
+        #     output_path = asyncio.run(
+        #         generate_audio(
+        #             text=text,
+        #             voice=VOICES[voice],
+        #             output_filename=f"{filename}.mp3"
+        #         )
+        #     )
         
-        if output_path:
+        # if output_path:
+        #     log_request(
+        #         st.session_state.current_user,
+        #         voice,
+        #         text,
+        #         f"{filename}.mp3"
+        #     )
+        #     st.success("Done! Audio generated and logged.")
+        #     st.audio(str(output_path))
+
+        if output_path and output_path.exists():
             log_request(
                 st.session_state.current_user,
                 voice,
                 text,
                 f"{filename}.mp3"
             )
-            st.success("Done! Audio generated and logged.")
-            st.audio(str(output_path))
+            st.success("Audio generated successfully and logged!")
+            
+            # Display audio player
+            audio_file = open(output_path, 'rb')
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/mp3')
+            
+            # Download button
+            st.download_button(
+                label="Download MP3",
+                data=audio_bytes,
+                file_name=f"{filename}.mp3",
+                mime="audio/mp3"
+            )
 
 # --- Authentication ---
 USERS = {
