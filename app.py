@@ -26,7 +26,13 @@ def main():
     st.title("Hindi Text-to-Speech Generator")
     st.markdown("Convert Hindi text to natural sounding speech")
     
-    # Input form
+    # Define voices with clear labels
+    VOICES = {
+        "Female (Swara)": HINDI_VOICE_FEMALE,
+        "Male (Madhur)": HINDI_VOICE_MALE
+    }
+
+    # Single form definition
     with st.form("tts_form"):
         text = st.text_area("Enter Hindi Text", height=200, 
                           value='''अब शिक्षा बनेगी आपकी ताक़त, क्योंकि आपका भविष्य है हमारी प्राथमिकता!
@@ -34,9 +40,9 @@ def main():
 जी हाँ! विजय मेमोरियल हायर सेकेंडरी स्कूल, रजाखेड़ी मकरोनिया सागर, मध्यप्रदेश में
 एक ऐसा विद्यालय जो देता है शिक्षा, संस्कार और संपूर्ण विकास का वातावरण।''')
         
-        voice = st.selectbox("Select Voice", 
-                           [HINDI_VOICE_FEMALE, HINDI_VOICE_MALE],
-                           format_func=lambda x: "Female" if "Female" in x else "Male")
+        # Voice selection using the VOICES dictionary
+        voice_name = st.selectbox("Select Voice", list(VOICES.keys()))
+        voice = VOICES[voice_name]  # Gets the actual voice ID
         
         col1, col2 = st.columns(2)
         with col1:
