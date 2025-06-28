@@ -9,3 +9,4 @@ bcrypt
 gspread
 oauth2client
 pytz 
+pydub.utils
