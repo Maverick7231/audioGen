@@ -177,12 +177,17 @@ USERS = {
     },
     "ram": {
         "password_hash": hashlib.sha256("ram123".encode()).hexdigest(),
-        "name": "Regular User",
+        "name": "Administrator",
         "is_admin": True  # Added this field
     },
     "admin": {
         "password_hash": hashlib.sha256("9329283191".encode()).hexdigest(),
-        "name": "Regular User",
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "ankit": {
+        "password_hash": hashlib.sha256("ankit123".encode()).hexdigest(),
+        "name": "Administrator",
         "is_admin": True  # Added this field
     }
 }
