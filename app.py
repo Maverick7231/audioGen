@@ -12,7 +12,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
 HINDI_VOICE_FEMALE = "hi-IN-SwaraNeural"
 OUTPUT_DIR = "generated_audio"
-LOG_SHEET_NAME = "TTS_Request_Logs"  # Make sure this matches your actual Sheet name
+LOG_SHEET_NAME = "logs"  # Make sure this matches your actual Sheet name
 
 # --- Google Sheets Setup ---
 def get_google_sheet():
