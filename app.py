@@ -91,9 +91,9 @@ def main_app():
         
         col1, col2 = st.columns(2)
         with col1:
-            rate = st.selectbox("Speed", ["+0%","+3%", "+5%", "+10%", "+20%", "-10%", "-20%"])
+            rate = st.selectbox("Speed", ["+0%", "+10%", "+20%", "-10%", "-20%"])
         with col2:
-            pitch = st.selectbox("Pitch", ["+0Hz","+3%", "+5%", "+10Hz", "+20Hz", "-10Hz", "-20Hz"])
+            pitch = st.selectbox("Pitch", ["+0Hz", "+10Hz", "+20Hz", "-10Hz", "-20Hz"])
         
         filename = st.text_input("Output filename (without extension)", "output")
         
