@@ -24,20 +24,42 @@ def get_google_sheet():
     client = gspread.authorize(creds)
     return client.open(LOG_SHEET_NAME).sheet1
 
+# def log_request(username, voice, input_text, output_filename):
+#     """Log request to Google Sheets"""
+#     try:
+#         sheet = get_google_sheet()
+#         sheet.append_row([
+#             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+#             username,
+#             get_client_ip(),
+#             voice,
+#             input_text[:100],  # Log first 100 chars
+#             output_filename
+#         ])
+#     except Exception as e:
+#         st.error(f"Failed to log request: {e}")
+
 def log_request(username, voice, input_text, output_filename):
     """Log request to Google Sheets"""
     try:
         sheet = get_google_sheet()
-        sheet.append_row([
+        response = sheet.append_row([
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             username,
             get_client_ip(),
             voice,
-            input_text[:100],  # Log first 100 chars
+            input_text[:100],
             output_filename
         ])
+        
+        # Check if the append was actually successful
+        if isinstance(response, dict) and response.get('updates', {}).get('updatedRows', 0) > 0:
+            st.sidebar.success("Request logged successfully")
+        else:
+            st.sidebar.warning("Logged but may not have saved")
+            
     except Exception as e:
-        st.error(f"Failed to log request: {e}")
+        st.error(f"Failed to log request: {str(e)}")
 
 # --- IP Detection ---
 def get_client_ip():
