@@ -24,7 +24,7 @@ async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz")
 
 def main():
     st.title("Hindi Text-to-Speech Generator")
-    st.markdown("Convert Hindi text to natural sounding speech using Microsoft's Edge TTS")
+    st.markdown("Convert Hindi text to natural sounding speech")
     
     # Input form
     with st.form("tts_form"):
