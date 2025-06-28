@@ -3,16 +3,54 @@ import asyncio
 from pathlib import Path
 import streamlit as st
 from edge_tts import Communicate
-import asyncio
-import hashlib 
+import hashlib
+import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# Define the Hindi voices
+# --- Configuration ---
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
 HINDI_VOICE_FEMALE = "hi-IN-SwaraNeural"
 OUTPUT_DIR = "generated_audio"
+LOG_SHEET_NAME = "TTS_Request_Logs"  # Make sure this matches your actual Sheet name
 
+# --- Google Sheets Setup ---
+def get_google_sheet():
+    """Authenticate and return the Google Sheet"""
+    scope = ["https://spreadsheets.google.com/feeds", 
+             "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["GCP_CREDS"], scope)
+    client = gspread.authorize(creds)
+    return client.open(LOG_SHEET_NAME).sheet1
+
+def log_request(username, voice, input_text, output_filename):
+    """Log request to Google Sheets"""
+    try:
+        sheet = get_google_sheet()
+        sheet.append_row([
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            username,
+            get_client_ip(),
+            voice,
+            input_text[:100],  # Log first 100 chars
+            output_filename
+        ])
+    except Exception as e:
+        st.error(f"Failed to log request: {e}")
+
+# --- IP Detection ---
+def get_client_ip():
+    """Get client IP address (works for Streamlit Sharing)"""
+    try:
+        ctx = st.runtime.get_instance().script_run_ctx
+        if ctx is not None:
+            return ctx.remote_ip
+    except:
+        return "unknown"
+
+# --- TTS Functions ---
 async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz"):
-    """Generate audio file from text using edge-tts"""
     Path(OUTPUT_DIR).mkdir(exist_ok=True)
     final_output_path = Path(OUTPUT_DIR) / output_filename
     
@@ -24,79 +62,56 @@ async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz")
         st.error(f"Error during audio generation: {e}")
         return None
 
+# --- Main App ---
 def main_app():
     st.title("Hindi Text-to-Speech Generator")
-    st.markdown("Convert Hindi text to natural sounding speech")
     
-    # Define voices with clear labels
     VOICES = {
         "Female (Swara)": HINDI_VOICE_FEMALE,
         "Male (Madhur)": HINDI_VOICE_MALE
     }
 
-    # Single form definition
     with st.form("tts_form"):
-        text = st.text_area("Enter Hindi Text", height=200, 
-                          value='''अब शिक्षा बनेगी आपकी ताक़त, क्योंकि आपका भविष्य है हमारी प्राथमिकता!
-
-जी हाँ! विजय मेमोरियल हायर सेकेंडरी स्कूल, रजाखेड़ी मकरोनिया सागर, मध्यप्रदेश में
-एक ऐसा विद्यालय जो देता है शिक्षा, संस्कार और संपूर्ण विकास का वातावरण।''')
-        
-        # Voice selection using the VOICES dictionary
-        voice_name = st.selectbox("Select Voice", list(VOICES.keys()))
-        voice = VOICES[voice_name]  # Gets the actual voice ID
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            rate = st.selectbox("Speed", ["+0%", "+10%", "+20%", "-10%", "-20%"])
-        with col2:
-            pitch = st.selectbox("Pitch", ["+0Hz", "+10Hz", "+20Hz", "-10Hz", "-20Hz"])
-        
-        filename = st.text_input("Output filename (without extension)", "output")
-        
+        text = st.text_area("Enter Hindi Text", height=200)
+        voice = st.selectbox("Select Voice", list(VOICES.keys()))
+        filename = st.text_input("Output Filename", "output")
         submitted = st.form_submit_button("Generate Audio")
-    
+
     if submitted:
         if not text.strip():
             st.warning("Please enter some text")
             return
             
-        with st.spinner("Generating audio..."):
+        with st.spinner("Generating..."):
             output_path = asyncio.run(
                 generate_audio(
                     text=text,
-                    voice=voice,
-                    output_filename=f"{filename}.mp3",
-                    rate=rate,
-                    pitch=pitch
+                    voice=VOICES[voice],
+                    output_filename=f"{filename}.mp3"
                 )
             )
-            
-        if output_path and output_path.exists():
-            st.success("Audio generated successfully!")
-            
-            # Display audio player
-            audio_file = open(output_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/mp3')
-            
-            # Download button
-            st.download_button(
-                label="Download MP3",
-                data=audio_bytes,
-                file_name=f"{filename}.mp3",
-                mime="audio/mp3"
+        
+        if output_path:
+            log_request(
+                st.session_state.current_user,
+                voice,
+                text,
+                f"{filename}.mp3"
             )
+            st.success("Done! Audio generated and logged.")
+            st.audio(str(output_path))
 
-# User database (in production, use a real database)
+# --- Authentication ---
 USERS = {
     "admin": {
         "password_hash": hashlib.sha256("admin123".encode()).hexdigest(),
-        "name": "Administrator"
+        "name": "Administrator",
+        "is_admin": True  # Added this field
     },
     "user": {
         "password_hash": hashlib.sha256("user123".encode()).hexdigest(),
-        "name": "Regular User"
+        "name": "Regular User",
+        "is_admin": False  # Added this field
     }
 }
 
@@ -137,6 +152,4 @@ if __name__ == "__main__":
     if login():
         st.sidebar.title(f"Welcome, {st.session_state.user_name}")
         logout()
-        main_app()  # Your existing TTS app function
-
-
+        main_app()
