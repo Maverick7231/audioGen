@@ -1,3 +1,5 @@
 streamlit
 edge-tts
 pydub
+python-dotenv
+bcrypt
