@@ -70,17 +70,40 @@ async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz")
 # --- Main App ---
 def main_app():
     st.title("Hindi Text-to-Speech Generator")
+    st.markdown("Convert Hindi text to natural sounding speech")
     
     VOICES = {
         "Female (Swara)": HINDI_VOICE_FEMALE,
         "Male (Madhur)": HINDI_VOICE_MALE
     }
 
+    # Single form definition
     with st.form("tts_form"):
-        text = st.text_area("Enter Hindi Text", height=200)
-        voice = st.selectbox("Select Voice", list(VOICES.keys()))
-        filename = st.text_input("Output Filename", "output")
+        text = st.text_area("Enter Hindi Text", height=200, 
+                          value='''अब शिक्षा बनेगी आपकी ताक़त, क्योंकि आपका भविष्य है हमारी प्राथमिकता!
+
+जी हाँ! विजय मेमोरियल हायर सेकेंडरी स्कूल, रजाखेड़ी मकरोनिया सागर, मध्यप्रदेश में
+एक ऐसा विद्यालय जो देता है शिक्षा, संस्कार और संपूर्ण विकास का वातावरण।''')
+        
+        # Voice selection using the VOICES dictionary
+        voice_name = st.selectbox("Select Voice", list(VOICES.keys()))
+        voice = VOICES[voice_name]  # Gets the actual voice ID
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            rate = st.selectbox("Speed", ["+0%","+3%", "+5%", "+10%", "+20%", "-10%", "-20%"])
+        with col2:
+            pitch = st.selectbox("Pitch", ["+0Hz","+3%", "+5%", "+10Hz", "+20Hz", "-10Hz", "-20Hz"])
+        
+        filename = st.text_input("Output filename (without extension)", "output")
+        
         submitted = st.form_submit_button("Generate Audio")
+    
+    # with st.form("tts_form"):
+    #     text = st.text_area("Enter Hindi Text", height=200)
+    #     voice = st.selectbox("Select Voice", list(VOICES.keys()))
+    #     filename = st.text_input("Output Filename", "output")
+    #     submitted = st.form_submit_button("Generate Audio")
 
     if submitted:
         if not text.strip():
@@ -108,15 +131,20 @@ def main_app():
 
 # --- Authentication ---
 USERS = {
-    "admin": {
-        "password_hash": hashlib.sha256("admin123".encode()).hexdigest(),
+    "kamesh": {
+        "password_hash": hashlib.sha256("nirvaan".encode()).hexdigest(),
         "name": "Administrator",
         "is_admin": True  # Added this field
     },
-    "user": {
-        "password_hash": hashlib.sha256("user123".encode()).hexdigest(),
+    "ram": {
+        "password_hash": hashlib.sha256("ram123".encode()).hexdigest(),
         "name": "Regular User",
-        "is_admin": False  # Added this field
+        "is_admin": True  # Added this field
+    },
+    "admin": {
+        "password_hash": hashlib.sha256("9329283191".encode()).hexdigest(),
+        "name": "Regular User",
+        "is_admin": True  # Added this field
     }
 }
 
