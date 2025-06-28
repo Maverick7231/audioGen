@@ -3,3 +3,5 @@ edge-tts
 pydub
 python-dotenv
 bcrypt
+gspread
+oauth2client
