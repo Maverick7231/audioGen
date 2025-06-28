@@ -7,6 +7,9 @@ import hashlib
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import datetime
+import pytz
+
 
 # --- Configuration ---
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
@@ -27,9 +30,13 @@ def get_google_sheet():
 def log_request(username, voice, input_text, output_filename):
     """Log request to Google Sheets"""
     sheet = get_google_sheet()
+
+    # Get current time in IST
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    ist_now = datetime.datetime.now(ist_timezone)
     
     response = sheet.append_row([
-        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ist_now.strftime("%Y-%m-%d %H:%M:%S"),  # IST-formatted time
         username,
         get_client_ip(),
         voice,
