@@ -4,19 +4,6 @@ from pydub.utils import make_chunks
 import os
 import tempfile
 
-# Check FFmpeg installation
-try:
-    AudioSegment.ffmpeg.get_ffmpeg_version()
-except:
-    st.error("FFmpeg not installed! Trying to install...")
-    os.system("apt-get update && apt-get install -y ffmpeg")
-    try:
-        AudioSegment.ffmpeg.get_ffmpeg_version()
-        st.success("FFmpeg installed successfully!")
-    except:
-        st.error("Failed to install FFmpeg. Please contact support.")
-        st.stop()
-
 def duck_background_music(voiceover, background, output_path, params):
     """Modified ducking function with all parameters configurable"""
     # Extend voiceover with silence-free background continuation
