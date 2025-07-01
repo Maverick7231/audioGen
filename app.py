@@ -3,59 +3,133 @@ import asyncio
 from pathlib import Path
 import streamlit as st
 from edge_tts import Communicate
-import asyncio
-import hashlib 
+import hashlib
+import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import datetime
+import pytz
 
-# Define the Hindi voices
+
+# --- Configuration ---
 HINDI_VOICE_MALE = "hi-IN-MadhurNeural"
 HINDI_VOICE_FEMALE = "hi-IN-SwaraNeural"
 OUTPUT_DIR = "generated_audio"
+LOG_SHEET_NAME = "logs"  
 
-async def generate_audio(text, voice, output_filename, rate="+0%", pitch="+0Hz"):
-    """Generate audio file from text using edge-tts"""
+# English voices with different accents
+ENGLISH_VOICES = {
+    "American Male (Eric)": "en-US-EricNeural",
+    "American Female (Jenny)": "en-US-JennyNeural",
+    "Spanish Male (Alvaro)": "es-ES-AlvaroNeural",
+    "Spanish Female (Elvira)": "es-ES-ElviraNeural",
+    "Mexican Male (Jorge)": "es-MX-JorgeNeural",
+    "Mexican Female (Dalia)": "es-MX-DaliaNeural"
+}
+
+# --- Google Sheets Setup ---
+def get_google_sheet():
+    """Authenticate and return the Google Sheet"""
+    scope = ["https://spreadsheets.google.com/feeds", 
+             "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["GCP_CREDS"], scope)
+    client = gspread.authorize(creds)
+    return client.open(LOG_SHEET_NAME).sheet1
+
+def log_request(username, voice, input_text, output_filename):
+    """Log request to Google Sheets"""
+    sheet = get_google_sheet()
+
+    # Get current time in IST
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    ist_now = datetime.datetime.now(ist_timezone)
+    
+    response = sheet.append_row([
+        ist_now.strftime("%Y-%m-%d %H:%M:%S"),  # IST-formatted time
+        username,
+        get_client_ip(),
+        voice,
+        input_text[:100],
+        output_filename
+    ])
+    print(f"Response from Google Sheets: {response}")
+
+    # Check if the append was actually successful
+    if isinstance(response, dict) and response.get('updates', {}).get('updatedRows', 0) > 0:
+        st.sidebar.success("Request logged successfully")
+    else:
+        st.sidebar.warning("Logged but may not have saved")
+
+# --- IP Detection ---
+def get_client_ip():
+    """Get client IP address (works for Streamlit Sharing)"""
+    try:
+        ctx = st.runtime.get_instance().script_run_ctx
+        if ctx is not None:
+            return ctx.remote_ip
+    except:
+        return "unknown"
+
+# --- TTS Functions ---
+async def generate_audio(text, voice, output_filename, rate=0, pitch=0):
     Path(OUTPUT_DIR).mkdir(exist_ok=True)
     final_output_path = Path(OUTPUT_DIR) / output_filename
     
     try:
-        communicate = Communicate(text=text, voice=voice, rate=rate, pitch=pitch)
+        # Convert integer inputs to percentage/Hz values
+        rate_str = f"{'+' if rate >= 0 else ''}{rate}%"
+        pitch_str = f"{'+' if pitch >= 0 else ''}{pitch}Hz"
+        
+        communicate = Communicate(text=text, voice=voice, rate=rate_str, pitch=pitch_str)
         await communicate.save(str(final_output_path))
         return final_output_path
     except Exception as e:
         st.error(f"Error during audio generation: {e}")
         return None
 
+# --- Main App ---
 def main_app():
-    st.title("Hindi Text-to-Speech Generator")
-    st.markdown("Convert Hindi text to natural sounding speech")
+    st.title("Multilingual Text-to-Speech Generator")
+    st.markdown("Convert text to natural sounding speech in multiple languages")
     
-    # Define voices with clear labels
-    VOICES = {
+    HINDI_VOICES = {
         "Female (Swara)": HINDI_VOICE_FEMALE,
         "Male (Madhur)": HINDI_VOICE_MALE
     }
 
+    # Combine all voice options
+    ALL_VOICES = {
+        **HINDI_VOICES,
+        **ENGLISH_VOICES
+    }
+
     # Single form definition
     with st.form("tts_form"):
-        text = st.text_area("Enter Hindi Text", height=200, 
+        text = st.text_area("Enter Text", height=200, 
                           value='''अब शिक्षा बनेगी आपकी ताक़त, क्योंकि आपका भविष्य है हमारी प्राथमिकता!
 
 जी हाँ! विजय मेमोरियल हायर सेकेंडरी स्कूल, रजाखेड़ी मकरोनिया सागर, मध्यप्रदेश में
 एक ऐसा विद्यालय जो देता है शिक्षा, संस्कार और संपूर्ण विकास का वातावरण।''')
         
-        # Voice selection using the VOICES dictionary
-        voice_name = st.selectbox("Select Voice", list(VOICES.keys()))
-        voice = VOICES[voice_name]  # Gets the actual voice ID
+        # Voice selection
+        voice_name = st.selectbox("Select Voice", list(ALL_VOICES.keys()))
+        voice = ALL_VOICES[voice_name]  # Gets the actual voice ID
         
         col1, col2 = st.columns(2)
         with col1:
-            rate = st.selectbox("Speed", ["+0%", "+10%", "+20%", "-10%", "-20%"])
+            rate = st.number_input("Speed Adjustment (-100 to 100)", 
+                                  min_value=-100, max_value=100, value=0, step=1,
+                                  help="Positive values increase speed, negative values decrease")
         with col2:
-            pitch = st.selectbox("Pitch", ["+0Hz", "+10Hz", "+20Hz", "-10Hz", "-20Hz"])
+            pitch = st.number_input("Pitch Adjustment (-100 to 100)", 
+                                   min_value=-100, max_value=100, value=0, step=1,
+                                   help="Positive values increase pitch, negative values decrease")
         
         filename = st.text_input("Output filename (without extension)", "output")
         
         submitted = st.form_submit_button("Generate Audio")
-    
+
     if submitted:
         if not text.strip():
             st.warning("Please enter some text")
@@ -70,10 +144,16 @@ def main_app():
                     rate=rate,
                     pitch=pitch
                 )
-            )
-            
+            )          
+
         if output_path and output_path.exists():
-            st.success("Audio generated successfully!")
+            log_request(
+                st.session_state.current_user,
+                voice_name,  # Log the display name rather than the voice ID
+                text,
+                f"{filename}.mp3"
+            )
+            st.success("Audio generated successfully and logged!")
             
             # Display audio player
             audio_file = open(output_path, 'rb')
@@ -88,15 +168,37 @@ def main_app():
                 mime="audio/mp3"
             )
 
-# User database (in production, use a real database)
+# --- Authentication ---
 USERS = {
-    "admin": {
-        "password_hash": hashlib.sha256("admin123".encode()).hexdigest(),
-        "name": "Administrator"
+    "kamesh": {
+        "password_hash": hashlib.sha256("nirvaan".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
     },
-    "user": {
-        "password_hash": hashlib.sha256("user123".encode()).hexdigest(),
-        "name": "Regular User"
+    "ram": {
+        "password_hash": hashlib.sha256("ram123".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "admin": {
+        "password_hash": hashlib.sha256("9329283191".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "ankit": {
+        "password_hash": hashlib.sha256("ankit123".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "sahil": {
+        "password_hash": hashlib.sha256("blackDog".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "oladi": {
+        "password_hash": hashlib.sha256("blender".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
     }
 }
 
@@ -127,6 +229,7 @@ def login():
         return False
     return True
 
+
 def logout():
     """Logout button"""
     if st.sidebar.button("Logout"):
@@ -137,6 +240,4 @@ if __name__ == "__main__":
     if login():
         st.sidebar.title(f"Welcome, {st.session_state.user_name}")
         logout()
-        main_app()  # Your existing TTS app function
-
-
+        main_app()
