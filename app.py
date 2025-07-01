@@ -76,17 +76,17 @@ async def generate_audio(text, voice, output_filename, rate=0, pitch=0):
     Path(OUTPUT_DIR).mkdir(exist_ok=True)
     final_output_path = Path(OUTPUT_DIR) / output_filename
     
-    try:
-        # Convert integer inputs to percentage/Hz values
-        rate_str = f"{'+' if rate >= 0 else ''}{rate}%"
-        pitch_str = f"{'+' if pitch >= 0 else ''}{pitch}Hz"
-        
-        communicate = Communicate(text=text, voice=voice, rate=rate_str, pitch=pitch_str)
-        await communicate.save(str(final_output_path))
-        return final_output_path
-    except Exception as e:
-        st.error(f"Error during audio generation: {e}")
-        return None
+    # try:
+    # Convert integer inputs to percentage/Hz values
+    rate_str = f"{'+' if rate >= 0 else ''}{rate}%"
+    pitch_str = f"{'+' if pitch >= 0 else ''}{pitch}Hz"
+    
+    communicate = Communicate(text=text, voice=voice, rate=rate_str, pitch=pitch_str)
+    await communicate.save(str(final_output_path))
+    return final_output_path
+    # except Exception as e:
+    #     st.error(f"Error during audio generation: {e}")
+    #     return None
 
 # --- Main App ---
 def main_app():
@@ -107,10 +107,8 @@ def main_app():
     # Single form definition
     with st.form("tts_form"):
         text = st.text_area("Enter Text", height=200, 
-                          value='''अब शिक्षा बनेगी आपकी ताक़त, क्योंकि आपका भविष्य है हमारी प्राथमिकता!
-
-जी हाँ! विजय मेमोरियल हायर सेकेंडरी स्कूल, रजाखेड़ी मकरोनिया सागर, मध्यप्रदेश में
-एक ऐसा विद्यालय जो देता है शिक्षा, संस्कार और संपूर्ण विकास का वातावरण।''')
+                          value=''' Hello! This is a sample text for testing the TTS functionality.
+                          You can enter any text here to generate audio.''')
         
         # Voice selection
         voice_name = st.selectbox("Select Voice", list(ALL_VOICES.keys()))
