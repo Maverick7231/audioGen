@@ -30,10 +30,10 @@ ENGLISH_VOICES = {
 }
 
 def groq_chat_tab():
-    st.header("Groq AI Assistant")
+    st.header("AI Assistant")
     
-    # Get API key from Streamlit secrets or environment variable
-    groq_api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY"))
+    # Get API key from root level of secrets
+    groq_api_key = st.secrets.get("GROQ_API_KEY")  # Changed this line
     
     if not groq_api_key:
         st.warning("Please set GROQ_API_KEY in secrets or environment variables")
