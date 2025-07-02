@@ -9,6 +9,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import pytz
+import requests
+import json
 
 
 # --- Configuration ---
@@ -26,6 +28,77 @@ ENGLISH_VOICES = {
     "Mexican Male (Jorge)": "es-MX-JorgeNeural",
     "Mexican Female (Dalia)": "es-MX-DaliaNeural"
 }
+
+def groq_chat_tab():
+    st.header("Groq AI Assistant")
+    
+    # Get API key from Streamlit secrets or environment variable
+    groq_api_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY"))
+    
+    if not groq_api_key:
+        st.warning("Please set GROQ_API_KEY in secrets or environment variables")
+        return
+    
+    # Model selection
+    model = st.selectbox(
+        "Select Model",
+        ["mixtral-8x7b-32768", "llama2-70b-4096"],
+        index=0
+    )
+    
+    # Chat interface
+    if "groq_messages" not in st.session_state:
+        st.session_state.groq_messages = []
+    
+    # Display chat messages
+    for message in st.session_state.groq_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Input for new messages
+    if prompt := st.chat_input("Ask Groq AI anything..."):
+        # Add user message to chat history
+        st.session_state.groq_messages.append({"role": "user", "content": prompt})
+        
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Prepare API request
+        headers = {
+            "Authorization": f"Bearer {groq_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": model,
+            "messages": st.session_state.groq_messages,
+            "temperature": 0.7,
+            "max_tokens": 1024
+        }
+        
+        # Show loading spinner while waiting for response
+        with st.spinner("Thinking..."):
+            try:
+                response = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
+                    json=data
+                )
+                response.raise_for_status()
+                
+                # Get AI response
+                ai_response = response.json()["choices"][0]["message"]["content"]
+                
+                # Add AI response to chat history
+                st.session_state.groq_messages.append({"role": "assistant", "content": ai_response})
+                
+                # Display AI response
+                with st.chat_message("assistant"):
+                    st.markdown(ai_response)
+                    
+            except Exception as e:
+                st.error(f"Error calling Groq API: {str(e)}")
 
 # --- Google Sheets Setup ---
 def get_google_sheet():
@@ -88,83 +161,168 @@ async def generate_audio(text, voice, output_filename, rate=0, pitch=0):
     #     st.error(f"Error during audio generation: {e}")
     #     return None
 
-# --- Main App ---
 def main_app():
-    st.title("Multilingual Text-to-Speech Generator")
-    st.markdown("Convert text to natural sounding speech in multiple languages")
+    tab1, tab2 = st.tabs(["Text-to-Speech", "AI Chat"])
     
-    HINDI_VOICES = {
-        "Female (Swara)": HINDI_VOICE_FEMALE,
-        "Male (Madhur)": HINDI_VOICE_MALE
-    }
+    with tab1:
+        st.title("Multilingual Text-to-Speech Generator")
+        st.markdown("Convert text to natural sounding speech in multiple languages")
 
-    # Combine all voice options
-    ALL_VOICES = {
-        **HINDI_VOICES,
-        **ENGLISH_VOICES
-    }
-
-    # Single form definition
-    with st.form("tts_form"):
-        text = st.text_area("Enter Text", height=200, 
-                          value=''' Hello! This is a sample text for testing the TTS functionality.
-                          You can enter any text here to generate audio.''')
-        
-        # Voice selection
-        voice_name = st.selectbox("Select Voice", list(ALL_VOICES.keys()))
-        voice = ALL_VOICES[voice_name]  # Gets the actual voice ID
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            rate = st.number_input("Speed Adjustment (-100 to 100)", 
-                                  min_value=-100, max_value=100, value=0, step=1,
-                                  help="Positive values increase speed, negative values decrease")
-        with col2:
-            pitch = st.number_input("Pitch Adjustment (-100 to 100)", 
-                                   min_value=-100, max_value=100, value=0, step=1,
-                                   help="Positive values increase pitch, negative values decrease")
-        
-        filename = st.text_input("Output filename (without extension)", "output")
-        
-        submitted = st.form_submit_button("Generate Audio")
-
-    if submitted:
-        if not text.strip():
-            st.warning("Please enter some text")
-            return
+    
+        HINDI_VOICES = {
+            "Female (Swara)": HINDI_VOICE_FEMALE,
+            "Male (Madhur)": HINDI_VOICE_MALE
+        }
+    
+        # Combine all voice options
+        ALL_VOICES = {
+            **HINDI_VOICES,
+            **ENGLISH_VOICES
+        }
+    
+        # Single form definition
+        with st.form("tts_form"):
+            text = st.text_area("Enter Text", height=200, 
+                              value=''' Hello! This is a sample text for testing the TTS functionality.
+                              You can enter any text here to generate audio.''')
             
-        with st.spinner("Generating audio..."):
-            output_path = asyncio.run(
-                generate_audio(
-                    text=text,
-                    voice=voice,
-                    output_filename=f"{filename}.mp3",
-                    rate=rate,
-                    pitch=pitch
+            # Voice selection
+            voice_name = st.selectbox("Select Voice", list(ALL_VOICES.keys()))
+            voice = ALL_VOICES[voice_name]  # Gets the actual voice ID
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                rate = st.number_input("Speed Adjustment (-100 to 100)", 
+                                      min_value=-100, max_value=100, value=0, step=1,
+                                      help="Positive values increase speed, negative values decrease")
+            with col2:
+                pitch = st.number_input("Pitch Adjustment (-100 to 100)", 
+                                       min_value=-100, max_value=100, value=0, step=1,
+                                       help="Positive values increase pitch, negative values decrease")
+            
+            filename = st.text_input("Output filename (without extension)", "output")
+            
+            submitted = st.form_submit_button("Generate Audio")
+    
+        if submitted:
+            if not text.strip():
+                st.warning("Please enter some text")
+                return
+                
+            with st.spinner("Generating audio..."):
+                output_path = asyncio.run(
+                    generate_audio(
+                        text=text,
+                        voice=voice,
+                        output_filename=f"{filename}.mp3",
+                        rate=rate,
+                        pitch=pitch
+                    )
+                )          
+    
+            if output_path and output_path.exists():
+                log_request(
+                    st.session_state.current_user,
+                    voice_name,  # Log the display name rather than the voice ID
+                    text,
+                    f"{filename}.mp3"
                 )
-            )          
+                st.success("Audio generated successfully and logged!")
+                
+                # Display audio player
+                audio_file = open(output_path, 'rb')
+                audio_bytes = audio_file.read()
+                st.audio(audio_bytes, format='audio/mp3')
+                
+                # Download button
+                st.download_button(
+                    label="Download MP3",
+                    data=audio_bytes,
+                    file_name=f"{filename}.mp3",
+                    mime="audio/mp3"
+                )
+        
 
-        if output_path and output_path.exists():
-            log_request(
-                st.session_state.current_user,
-                voice_name,  # Log the display name rather than the voice ID
-                text,
-                f"{filename}.mp3"
-            )
-            st.success("Audio generated successfully and logged!")
+    with tab2:
+        groq_chat_tab()
+
+# # --- Main App ---
+# def main_app():
+#     st.title("Multilingual Text-to-Speech Generator")
+#     st.markdown("Convert text to natural sounding speech in multiple languages")
+    
+#     HINDI_VOICES = {
+#         "Female (Swara)": HINDI_VOICE_FEMALE,
+#         "Male (Madhur)": HINDI_VOICE_MALE
+#     }
+
+#     # Combine all voice options
+#     ALL_VOICES = {
+#         **HINDI_VOICES,
+#         **ENGLISH_VOICES
+#     }
+
+#     # Single form definition
+#     with st.form("tts_form"):
+#         text = st.text_area("Enter Text", height=200, 
+#                           value=''' Hello! This is a sample text for testing the TTS functionality.
+#                           You can enter any text here to generate audio.''')
+        
+#         # Voice selection
+#         voice_name = st.selectbox("Select Voice", list(ALL_VOICES.keys()))
+#         voice = ALL_VOICES[voice_name]  # Gets the actual voice ID
+        
+#         col1, col2 = st.columns(2)
+#         with col1:
+#             rate = st.number_input("Speed Adjustment (-100 to 100)", 
+#                                   min_value=-100, max_value=100, value=0, step=1,
+#                                   help="Positive values increase speed, negative values decrease")
+#         with col2:
+#             pitch = st.number_input("Pitch Adjustment (-100 to 100)", 
+#                                    min_value=-100, max_value=100, value=0, step=1,
+#                                    help="Positive values increase pitch, negative values decrease")
+        
+#         filename = st.text_input("Output filename (without extension)", "output")
+        
+#         submitted = st.form_submit_button("Generate Audio")
+
+#     if submitted:
+#         if not text.strip():
+#             st.warning("Please enter some text")
+#             return
             
-            # Display audio player
-            audio_file = open(output_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/mp3')
+#         with st.spinner("Generating audio..."):
+#             output_path = asyncio.run(
+#                 generate_audio(
+#                     text=text,
+#                     voice=voice,
+#                     output_filename=f"{filename}.mp3",
+#                     rate=rate,
+#                     pitch=pitch
+#                 )
+#             )          
+
+#         if output_path and output_path.exists():
+#             log_request(
+#                 st.session_state.current_user,
+#                 voice_name,  # Log the display name rather than the voice ID
+#                 text,
+#                 f"{filename}.mp3"
+#             )
+#             st.success("Audio generated successfully and logged!")
             
-            # Download button
-            st.download_button(
-                label="Download MP3",
-                data=audio_bytes,
-                file_name=f"{filename}.mp3",
-                mime="audio/mp3"
-            )
+#             # Display audio player
+#             audio_file = open(output_path, 'rb')
+#             audio_bytes = audio_file.read()
+#             st.audio(audio_bytes, format='audio/mp3')
+            
+#             # Download button
+#             st.download_button(
+#                 label="Download MP3",
+#                 data=audio_bytes,
+#                 file_name=f"{filename}.mp3",
+#                 mime="audio/mp3"
+#             )
 
 # --- Authentication ---
 USERS = {
@@ -233,6 +391,8 @@ def logout():
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.experimental_rerun()
+
+
 
 if __name__ == "__main__":
     if login():
