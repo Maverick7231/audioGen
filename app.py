@@ -33,7 +33,7 @@ def groq_chat_tab():
     st.header("AI Assistant")
     
     # Get API key from root level of secrets
-    groq_api_key = st.secrets.get("GROQ_API_KEY")  # Changed this line
+    groq_api_key = "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"
     
     if not groq_api_key:
         st.warning("Please set GROQ_API_KEY in secrets or environment variables")
