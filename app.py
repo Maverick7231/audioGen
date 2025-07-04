@@ -355,6 +355,16 @@ USERS = {
         "password_hash": hashlib.sha256("blender".encode()).hexdigest(),
         "name": "Administrator",
         "is_admin": True  # Added this field
+    },
+    "ntwist": {
+        "password_hash": hashlib.sha256("ntwist123".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
+    },
+    "faal": {
+        "password_hash": hashlib.sha256("faal".encode()).hexdigest(),
+        "name": "Administrator",
+        "is_admin": True  # Added this field
     }
 }
 
